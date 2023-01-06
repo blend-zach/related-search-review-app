@@ -5,7 +5,7 @@ from st_aggrid import GridOptionsBuilder, AgGrid, GridUpdateMode, DataReturnMode
 # import numpy as np
 # import os
 # from sklearn import metrics
-# import plotly.express as px
+import plotly.express as px
 # import json
 
 st.set_page_config(
@@ -21,21 +21,30 @@ df['H1_BC2'] = df['H1 Breadcrumb Structure'].apply(lambda x: x.split("->")[1] if
 df['H1_BC3'] = df['H1 Breadcrumb Structure'].apply(lambda x: x.split("->")[2] if len(x.split("->")) > 2 else '')
 df['H1_BC4'] = df['H1 Breadcrumb Structure'].apply(lambda x: x.split("->")[3] if len(x.split("->")) > 3 else '')
 df['H1_BC5'] = df['H1 Breadcrumb Structure'].apply(lambda x: x.split("->")[4] if len(x.split("->")) > 4 else '')
-df['Edited Related H1'] = df['Related H1']
+df['Edited Related H1'] = df['anchor_text']
 # df.drop(columns=['Unnamed: 0'], inplace=True)
 
 # Create a list of all the columns
 cols = df.columns.tolist()
 
+
 # Collects user input features into dataframe
 def user_input_features():
+    # sidebar instructions
+    st.sidebar.header('H1 Filter')
+    filter_msg1 = '''<p style="color:Grey; font-size: 12px;">You can apply filters to narrow down the H1s. You have to 
+        select a H1 after applying filters. If you want to see all the H1s, leave all the filters blank. </p>'''
+    filter_msg2 = '''<p style="color:Grey; font-size: 12px;"> (Note: In Breadcrumb filter, the following select 
+    options will be determined by the previous selections.) </p>'''
+    st.sidebar.markdown(filter_msg1, unsafe_allow_html=True)
+    st.sidebar.markdown(filter_msg2, unsafe_allow_html=True)
+
     # keyword filter
     keyword = st.sidebar.text_input(label="Keyword", placeholder="Search by Keywords...")
     if keyword:
         kw_df = df[df['H1'].apply(lambda x: keyword.lower() in x.lower())]
     else:
         kw_df = df
-    print(keyword)
     # category filter
     category = []
     breadcrumb_1 = st.sidebar.selectbox(label="Breadcrumb 1",
@@ -99,8 +108,14 @@ def user_input_features():
             data = df_breadcrumb_1
     else:
         data = kw_df
-    h1_selection = st.sidebar.selectbox(label="Selected H1 (required)", options=["Choose..."] + data['H1'].unique().tolist())
-    return keyword, category, h1_selection, data
+    h1_selection = st.sidebar.selectbox(label="Selected H1 (required)",
+                                        options=["Choose..."] + data['H1'].unique().tolist())
+    # st.sidebar.header("Configuration")
+    # with st.sidebar.form(key="grid_reset"):
+    #     n_recs = st.slider("Number of Autoship Recommendations", 3, 50, 12)
+    #     n_cols = st.number_input("Number of Recommendations Each Row", 1, 10, 5)
+    #     st.form_submit_button(label="Reset recs and layout")
+    return keyword, category, h1_selection, data #, n_recs, n_cols
 
 
 filter_bar = user_input_features()
@@ -109,6 +124,7 @@ breadcrumb_filter = filter_bar[1]
 h1_selected = filter_bar[2]
 filtered_data = filter_bar[3]
 
+
 def make_grid(cols, rows):
     grid = [0] * cols
     for i in range(cols):
@@ -116,13 +132,13 @@ def make_grid(cols, rows):
             grid[i] = st.columns(rows)
     return grid
 
-aggrid = 0
+
 # Content of the page (NON-AGGRID)
-if h1_selected != 'Choose...' and aggrid == 0:
+if h1_selected != 'Choose...' and breadcrumb_filter != []:
     st.subheader(f"Selected H1: {h1_selected}")
     st.write(filtered_data[filtered_data['H1'] == h1_selected]['H1 URL'].values[0])
     for i, row in filtered_data[filtered_data['H1'] == h1_selected].reset_index().iterrows():
-        label = f"{i + 1} - {row['Related H1']}"
+        label = f"{i + 1} - {row['anchor_text']}"
         with st.expander(label=label, expanded=False):
             url = row['Related Search URL']
             breadcrumb = [row['Related Breadcrumb Depth 1'], row['Related Breadcrumb Depth 2'],
@@ -139,27 +155,34 @@ if h1_selected != 'Choose...' and aggrid == 0:
             if edit_anchor_text:
                 tmp_idx = df[(df['H1'] == h1_selected) & (df['Related H1'] == row['Related H1'])].index[0]
                 df.loc[tmp_idx, 'Edited Related H1'] = edit_anchor_text
-
+# create some dashboard here
+elif h1_selected == 'Choose...':
+    st.subheader("Overview Status of the Related Search Results")
+    a = df.drop_duplicates(subset=['H1'])
+    st.write(px.pie(a, names='H1_BC1'))
+    x = df['H1'].value_counts().to_frame()
+    st.write(px.histogram(x, x="H1"), use_container_width=True)
 # Content of the page (AGGRID)
-if h1_selected != 'Choose...' and aggrid != 0:
-    st.subheader(f"Selected H1: {h1_selected}")
-    df_aggrid = filtered_data[filtered_data['H1'] == h1_selected].reset_index()
-    # show the dataframe using aggrid
-    gb = GridOptionsBuilder.from_dataframe(df_aggrid)
-    gb.configure_pagination(paginationPageSize=12)
-    gb.configure_side_bar()
-    gb.configure_selection("multiple", use_checkbox=True, groupSelectsChildren="Group checkbox select children")
-    gb.configure_column("anchor_text", editable=True)
-    gridOptions = gb.build()
-    grid_response = AgGrid(
-        df_aggrid,
-        gridOptions=gridOptions,
-        data_return_mode='AS_INPUT',
-        update_mode='MODEL_CHANGED',
-        fit_columns_on_grid_load=False,
-        enable_enterprise_modules=True,
-        # rowDragEntireRow=True,
-        height=350,
-        width='100%',
-    )
+# if h1_selected != 'Choose...' and aggrid != 0:
+#     st.subheader(f"Selected H1: {h1_selected}")
+#     df_aggrid = filtered_data[filtered_data['H1'] == h1_selected].reset_index()
+#     # show the dataframe using aggrid
+#     gb = GridOptionsBuilder.from_dataframe(df_aggrid)
+#     gb.configure_pagination(paginationPageSize=12)
+#     gb.configure_side_bar()
+#     gb.configure_selection("multiple", use_checkbox=True, groupSelectsChildren="Group checkbox select children")
+#     gb.configure_column("anchor_text", editable=True)
+#     gridOptions = gb.build()
+#     grid_response = AgGrid(
+#         df_aggrid,
+#         gridOptions=gridOptions,
+#         data_return_mode='AS_INPUT',
+#         update_mode='MODEL_CHANGED',
+#         fit_columns_on_grid_load=False,
+#         enable_enterprise_modules=True,
+#         # rowDragEntireRow=True,
+#         height=350,
+#         width='100%',
+#     )
+
 st.sidebar.download_button('Download Current Dataframe', df.to_csv(), 'related-search-full-run.csv')
