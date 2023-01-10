@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from st_aggrid import GridOptionsBuilder, AgGrid, GridUpdateMode, DataReturnMode
+from st_draggable_list import DraggableList
 
 # import numpy as np
 # import os
@@ -22,6 +23,7 @@ df['H1_BC3'] = df['H1 Breadcrumb Structure'].apply(lambda x: x.split("->")[2] if
 df['H1_BC4'] = df['H1 Breadcrumb Structure'].apply(lambda x: x.split("->")[3] if len(x.split("->")) > 3 else '')
 df['H1_BC5'] = df['H1 Breadcrumb Structure'].apply(lambda x: x.split("->")[4] if len(x.split("->")) > 4 else '')
 df['Edited Related H1'] = df['anchor_text']
+df['new_rank'] = df['Ranking']
 # df.drop(columns=['Unnamed: 0'], inplace=True)
 
 # Create a list of all the columns
@@ -108,8 +110,6 @@ def user_input_features():
             data = df_breadcrumb_1
     else:
         data = kw_df
-    # h1_selection = st.sidebar.selectbox(label="Selected H1 (required)",
-    #                                     options=["Choose..."] + data['H1'].unique().tolist())
     return keyword, category, [], data
 
 filter_bar = user_input_features()
@@ -129,19 +129,52 @@ def make_grid(cols, rows):
 page_length = 12
 # Content of the page
 # home page (display two plots)
+if 'show' not in st.session_state:
+    st.session_state.show = False
+if "selected_h1" not in st.session_state:
+    st.session_state.selected_h1 = ""
+#
+# def c():
+#     st.session_state.show = True
+#
+# b1 = st.button("Show More", on_click=c)
+# if st.session_state.show == False:
+#     print('check')
+# vincent = [
+#     {"id": "oct", "order": 10, "name": "Oct"},
+#     {"id": "nov", "order": 11, "name": "Nov"},
+#     {"id": "dec", "order": 12, "name": "Dec"},
+#     {"id": "jan", "order": 1, "name": "Jan"},
+#     {"id": "feb", "order": 2, "name": "Feb"},
+#     {"id": "mar", "order": 3, "name": "Apr"},
+#     {"id": "may", "order": 5, "name": "May"},
+#     {"id": "jun", "order": 6, "name": "Jun"},
+#     {"id": "jul", "order": 7, "name": "Jul"},
+#     {"id": "aug", "order": 8, "name": "Aug"},
+#     {"id": "Sep", "order": 9, "name": "Sep"},
+# ]
+#
+#     zach = DraggableList(vincent, key="foo")
+#     st.write(zach)
+
 if breadcrumb_filter == [] and keyword_filter == "":
     st.subheader("Overview Status of the Related Search Results")
     a = df.drop_duplicates(subset=['H1'])
     st.write(px.pie(a, names='H1_BC1'))
     x = df['H1'].value_counts().to_frame()
-    st.write(px.histogram(x, x="H1"), use_container_width=True)
+    st.write(px.histogram(x, x="H1"))
+
+
 # after applied filter
 else:
+    kw_select = keyword_filter if keyword_filter else "None"
+    st.caption(f"You have selected following filters:")
+    st.caption(f"Keyword: **{kw_select}**, Breadcrumb: **{'->'.join(breadcrumb_filter)}**")
     h1s = filtered_data['H1'].unique().tolist()
+    st.caption(f"There are **{len(h1s)}** H1s in total.")
     page_bar = st.selectbox(label="Page", options=[i for i in range(1, len(h1s) // page_length + 2)])
     # print(h1s, page_bar, range(1, len(h1s) // page_length + 1))
     h1_list_on_page = h1s[(page_bar - 1) * page_length: page_bar * page_length]
-    print(h1_list_on_page)
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         a = [st.button(label=h1_list_on_page[i]) for i in range(0, len(h1_list_on_page), 4)]
@@ -157,15 +190,18 @@ else:
     h1_3 = h1_button_on_page[2: len(h1_button_on_page): 3]
     h1_button_on_page = h1_1 + h1_2 + h1_3
     # h1_button_on_page = [st.button(label=h1) for h1 in h1_list_on_page]
+    print(h1_button_on_page)
     if True in h1_button_on_page:
         h1_selected = h1_list_on_page[h1_button_on_page.index(True)]
-    else:
-        h1_selected = ''
-    print(h1_selected)
-    if h1_selected != '':
-        st.subheader(f"Selected H1: {h1_selected}")
-        st.write(filtered_data[filtered_data['H1'] == h1_selected]['H1 URL'].values[0])
-        for i, row in filtered_data[filtered_data['H1'] == h1_selected].reset_index().iterrows():
+        st.session_state.selected_h1 = h1_selected
+        st.session_state.show = True
+        print(st.session_state.selected_h1, st.session_state.show)
+
+    if st.session_state.show:
+        print(st.session_state.selected_h1)
+        st.subheader(f"Selected H1: {st.session_state.selected_h1}")
+        st.write(filtered_data[filtered_data['H1'] == st.session_state.selected_h1]['H1 URL'].values[0])
+        for i, row in filtered_data[filtered_data['H1'] == st.session_state.selected_h1].reset_index().iterrows():
             label = f"{i + 1} - {row['anchor_text']}"
             with st.expander(label=label, expanded=False):
                 url = row['Related Search URL']
@@ -178,39 +214,33 @@ else:
                 mygrid[0][1].write(f"- Similarity: {row['Similarity']}")
                 mygrid[1][0].write(f"- Related URL: {url}")
                 mygrid[1][1].write(f"- Page Type: {row['page_type']}")
-                edit_anchor_text = st.text_input(label="Edit Anchor Text", value='', placeholder=row['Related H1'])
+                edit_anchor_text = st.text_input(label="Edit Anchor Text", value=row['anchor_text'])
                 if edit_anchor_text:
-                    tmp_idx = df[(df['H1'] == h1_selected) & (df['Related H1'] == row['Related H1'])].index[0]
+                    tmp_idx = df[(df['H1'] == st.session_state.selected_h1) & (df['Related H1'] == row['Related H1'])].index[0]
                     df.loc[tmp_idx, 'Edited Related H1'] = edit_anchor_text
-
-
-
-# if h1_selected != 'Choose...' and breadcrumb_filter != []:
-#     st.subheader(f"Selected H1: {h1_selected}")
-#     st.write(filtered_data[filtered_data['H1'] == h1_selected]['H1 URL'].values[0])
-#     for i, row in filtered_data[filtered_data['H1'] == h1_selected].reset_index().iterrows():
-#         label = f"{i + 1} - {row['anchor_text']}"
-#         with st.expander(label=label, expanded=False):
-#             url = row['Related Search URL']
-#             breadcrumb = [row['Related Breadcrumb Depth 1'], row['Related Breadcrumb Depth 2'],
-#                           row['Related Breadcrumb Depth 3'], row['Related Breadcrumb Depth 4'],
-#                           row['Related Breadcrumb Depth 5']]
-#             breadcrumb = [x for x in breadcrumb if str(x) != 'nan']
-#             mygrid = make_grid(2, 2)
-#             mygrid[0][0].write(f"- Breadcrumb: {' -> '.join(breadcrumb)}")
-#             mygrid[0][1].write(f"- Similarity: {row['Similarity']}")
-#             mygrid[1][0].write(f"- Related URL: {url}")
-#             mygrid[1][1].write(f"- Page Type: {row['page_type']}")
-#             edit_anchor_text = st.text_input(label="Edit Anchor Text", value='', placeholder=row['Related H1'])
-#             if edit_anchor_text:
-#                 tmp_idx = df[(df['H1'] == h1_selected) & (df['Related H1'] == row['Related H1'])].index[0]
-#                 df.loc[tmp_idx, 'Edited Related H1'] = edit_anchor_text
-# create some dashboard here
-# elif h1_selected == 'Choose...':
-#     st.subheader("Overview Status of the Related Search Results")
-#     a = df.drop_duplicates(subset=['H1'])
-#     st.write(px.pie(a, names='H1_BC1'))
-#     x = df['H1'].value_counts().to_frame()
-#     st.write(px.histogram(x, x="H1"), use_container_width=True)
-
+        print('check check here!!!')
+        st.caption("If you want to re-rank the anchor texts, please drag and drop the anchor texts in the order you want.")
+        tmp_anchor_text = filtered_data[filtered_data['H1'] == st.session_state.selected_h1]['anchor_text'].unique().tolist()
+        print(tmp_anchor_text)
+        tmp_data = []
+        for i, anchor_text in enumerate(tmp_anchor_text):
+            tmp_dict = {'id': anchor_text, 'order': i + 1, 'name': anchor_text}
+            tmp_data.append(tmp_dict)
+        print(tmp_data)
+        anchor_text_list = DraggableList(tmp_data)
+        for order in anchor_text_list:
+            tmp_idx = df[(df['H1'] == st.session_state.selected_h1) & (df['anchor_text'] == order['name'])].index[0]
+            print(order, tmp_idx, order['order'])
+            df.loc[tmp_idx, "new_rank"] = order['order'] + 1
+            print(tmp_idx)
+    else:
+        viz_1_data = filtered_data.copy()
+        viz_1_data.drop_duplicates(subset=['H1'], inplace=True)
+        viz_1_data['Related Breadcrumb Structure'] = viz_1_data[
+            ['Related Breadcrumb Depth 1', 'Related Breadcrumb Depth 2', 'Related Breadcrumb Depth 3',
+             'Related Breadcrumb Depth 4', 'Related Breadcrumb Depth 5', 'Related Breadcrumb Depth 6']].values.tolist()
+        viz_1_data['Related Breadcrumb Structure'] = viz_1_data['Related Breadcrumb Structure'].apply(
+            lambda z: '->'.join([bc for bc in z if str(bc) != 'nan']))
+        viz_1_data = viz_1_data.groupby(['Related Breadcrumb Structure'])['H1'].count().reset_index()
+        st.write(px.bar(viz_1_data, x='Related Breadcrumb Structure', y='H1'))
 st.sidebar.download_button('Download Current Dataframe', df.to_csv(), 'related-search-full-run.csv')
