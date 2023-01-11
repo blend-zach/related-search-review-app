@@ -16,7 +16,7 @@ st.set_page_config(
 )
 
 # Load data
-df = pd.read_csv('related_search_full_run.csv')
+df = pd.read_csv('related_search_full_run_1.csv')
 df['H1_BC1'] = df['H1 Breadcrumb Structure'].apply(lambda x: x.split("->")[0] if len(x.split("->")) > 0 else '')
 df['H1_BC2'] = df['H1 Breadcrumb Structure'].apply(lambda x: x.split("->")[1] if len(x.split("->")) > 1 else '')
 df['H1_BC3'] = df['H1 Breadcrumb Structure'].apply(lambda x: x.split("->")[2] if len(x.split("->")) > 2 else '')
