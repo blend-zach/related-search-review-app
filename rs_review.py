@@ -24,7 +24,8 @@ df['H1_BC4'] = df['H1 Breadcrumb Structure'].apply(lambda x: x.split("->")[3] if
 df['H1_BC5'] = df['H1 Breadcrumb Structure'].apply(lambda x: x.split("->")[4] if len(x.split("->")) > 4 else '')
 df['Edited Related H1'] = df['anchor_text']
 df['new_rank'] = df['Ranking']
-# df.drop(columns=['Unnamed: 0'], inplace=True)
+if 'Unnamed: 0' in df.columns:
+    df.drop(columns=['Unnamed: 0'], inplace=True)
 
 # Create a list of all the columns
 cols = df.columns.tolist()
@@ -229,4 +230,4 @@ else:
             lambda z: '->'.join([bc for bc in z if str(bc) != 'nan']))
         viz_1_data = viz_1_data.groupby(['Related Breadcrumb Structure'])['H1'].count().reset_index()
         st.write(px.bar(viz_1_data, x='Related Breadcrumb Structure', y='H1'))
-st.sidebar.download_button('Download Current Dataframe', df.to_csv(), 'related-search-full-run.csv')
+st.sidebar.download_button('Download Current Dataframe', df.to_csv(index=False), 'related-search-full-run.csv')
