@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 from st_aggrid import GridOptionsBuilder, AgGrid, GridUpdateMode, DataReturnMode
-from st_draggable_list import DraggableList
+# from st_draggable_list import DraggableList
 
 # import numpy as np
 # import os
@@ -140,22 +140,6 @@ if "selected_h1" not in st.session_state:
 # b1 = st.button("Show More", on_click=c)
 # if st.session_state.show == False:
 #     print('check')
-# vincent = [
-#     {"id": "oct", "order": 10, "name": "Oct"},
-#     {"id": "nov", "order": 11, "name": "Nov"},
-#     {"id": "dec", "order": 12, "name": "Dec"},
-#     {"id": "jan", "order": 1, "name": "Jan"},
-#     {"id": "feb", "order": 2, "name": "Feb"},
-#     {"id": "mar", "order": 3, "name": "Apr"},
-#     {"id": "may", "order": 5, "name": "May"},
-#     {"id": "jun", "order": 6, "name": "Jun"},
-#     {"id": "jul", "order": 7, "name": "Jul"},
-#     {"id": "aug", "order": 8, "name": "Aug"},
-#     {"id": "Sep", "order": 9, "name": "Sep"},
-# ]
-#
-#     zach = DraggableList(vincent, key="foo")
-#     st.write(zach)
 
 if breadcrumb_filter == [] and keyword_filter == "":
     st.subheader("Overview Status of the Related Search Results")
@@ -170,7 +154,9 @@ else:
     kw_select = keyword_filter if keyword_filter else "None"
     st.caption(f"You have selected following filters:")
     st.caption(f"Keyword: **{kw_select}**, Breadcrumb: **{'->'.join(breadcrumb_filter)}**")
+    # h1s = filtered_data['H1'].unique().tolist()
     h1s = filtered_data['H1'].unique().tolist()
+    # print("fjdaofnasdkfnasdfkafnakdlfanfladn")
     st.caption(f"There are **{len(h1s)}** H1s in total.")
     page_bar = st.selectbox(label="Page", options=[i for i in range(1, len(h1s) // page_length + 2)])
     # print(h1s, page_bar, range(1, len(h1s) // page_length + 1))
@@ -201,7 +187,8 @@ else:
         print(st.session_state.selected_h1)
         st.subheader(f"Selected H1: {st.session_state.selected_h1}")
         st.write(filtered_data[filtered_data['H1'] == st.session_state.selected_h1]['H1 URL'].values[0])
-        for i, row in filtered_data[filtered_data['H1'] == st.session_state.selected_h1].reset_index().iterrows():
+        for i, row in filtered_data[filtered_data['H1'] == st.session_state.selected_h1].sort_values(by=['new_rank']).reset_index().iterrows():
+            # print('this is running!!!', filtered_data['new_rank'].unique().tolist())
             label = f"{i + 1} - {row['anchor_text']}"
             with st.expander(label=label, expanded=False):
                 url = row['Related Search URL']
@@ -218,21 +205,20 @@ else:
                 if edit_anchor_text:
                     tmp_idx = df[(df['H1'] == st.session_state.selected_h1) & (df['Related H1'] == row['Related H1'])].index[0]
                     df.loc[tmp_idx, 'Edited Related H1'] = edit_anchor_text
+                    df.to_csv('related_search_full_run.csv', index=False)
         print('check check here!!!')
-        st.caption("If you want to re-rank the anchor texts, please drag and drop the anchor texts in the order you want.")
-        tmp_anchor_text = filtered_data[filtered_data['H1'] == st.session_state.selected_h1]['anchor_text'].unique().tolist()
-        print(tmp_anchor_text)
-        tmp_data = []
-        for i, anchor_text in enumerate(tmp_anchor_text):
-            tmp_dict = {'id': anchor_text, 'order': i + 1, 'name': anchor_text}
-            tmp_data.append(tmp_dict)
-        print(tmp_data)
-        anchor_text_list = DraggableList(tmp_data)
-        for order in anchor_text_list:
-            tmp_idx = df[(df['H1'] == st.session_state.selected_h1) & (df['anchor_text'] == order['name'])].index[0]
-            print(order, tmp_idx, order['order'])
-            df.loc[tmp_idx, "new_rank"] = order['order'] + 1
-            print(tmp_idx)
+        # st.caption("If you want to re-rank the anchor texts, please drag and drop the anchor texts in the order you want.")
+        # tmp_anchor_text = filtered_data[filtered_data['H1'] == st.session_state.selected_h1]['anchor_text'].unique().tolist()
+        # tmp_data = []
+        # for i, anchor_text in enumerate(tmp_anchor_text):
+        #     tmp_dict = {'id': anchor_text, 'order': i + 1, 'name': anchor_text}
+        #     tmp_data.append(tmp_dict)
+        # anchor_text_list = DraggableList(tmp_data)
+        # if anchor_text_list:
+        #     for order in anchor_text_list:
+        #         tmp_idx = df[(df['H1'] == st.session_state.selected_h1) & (df['anchor_text'] == order['name'])].index[0]
+        #         df.loc[tmp_idx, "new_rank"] = order['order'] + 1
+        #         df.to_csv('related_search_full_run.csv', index=False)
     else:
         viz_1_data = filtered_data.copy()
         viz_1_data.drop_duplicates(subset=['H1'], inplace=True)
