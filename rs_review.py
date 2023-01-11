@@ -187,7 +187,8 @@ else:
     if st.session_state.show:
         print(st.session_state.selected_h1)
         st.subheader(f"Selected H1: {st.session_state.selected_h1}")
-        st.write(filtered_data[filtered_data['H1'] == st.session_state.selected_h1]['H1 URL'].values[0])
+        if st.session_state.selected_h1 in filtered_data['H1'].unique().tolist():
+            st.write(filtered_data[filtered_data['H1'] == st.session_state.selected_h1]['H1 URL'].values[0])
         for i, row in filtered_data[filtered_data['H1'] == st.session_state.selected_h1].sort_values(by=['new_rank']).reset_index().iterrows():
             # print('this is running!!!', filtered_data['new_rank'].unique().tolist())
             label = f"{i + 1} - {row['anchor_text']}"
